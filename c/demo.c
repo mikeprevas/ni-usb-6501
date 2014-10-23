@@ -3,9 +3,10 @@
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
-
+#include <signal.h>
 #include "niusb6501.h"
-
+struct usb_dev_handle *handle = NULL;
+	
 void counter_demo(struct usb_dev_handle *handle)
 {
 	niusb6501_write_counter(handle, 0);
@@ -147,10 +148,38 @@ void print_usage(const char *progname)
 	        progname);
 }
 
+void terminate()
+{
+	if (handle == NULL)
+		return ;
+
+	niusb6501_close_device(handle);
+	handle = NULL;
+}
+
+void on_signal(sig)
+{
+	switch(sig)
+	{
+	case SIGTERM:
+		printf("sigterm\n");
+		break;
+	case SIGINT:
+		printf("sig interrupt\n");
+		break;
+	default:
+		printf("uknown signal %d\n", sig);
+		break;
+	}
+
+	terminate();
+	exit(0);
+}
+
+
 int main(int argc, char **argv)
 {
 	struct usb_device *dev;
-	struct usb_dev_handle *handle;
 	char mode = 'h';
 
 	if(argc == 2 && argv[1][0] == '-' && argv[1][1] && !argv[1][2])
@@ -168,6 +197,8 @@ int main(int argc, char **argv)
 		return 0;
 	}
 
+	signal(SIGINT, on_signal);
+	signal(SIGTERM, on_signal);
 	if(niusb6501_list_devices(&dev, 1) != 1)
 	{
 		fprintf(stderr, "Device not found\n");
@@ -196,7 +227,8 @@ int main(int argc, char **argv)
 		break;
 	}
 
-	niusb6501_close_device(handle);
-
+	printf("term\n");	
+	terminate();
+	
 	return 0;
 }
